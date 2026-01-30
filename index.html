@@ -331,9 +331,14 @@
     let currentMode = null; 
     let tempPoint = null; 
     let isRecording = false;
-    let watchId = null;
     let wakeLock = null;
     let markersLayer = null;
+    
+    // Variáveis Globais de Geolocalização
+    let watchId = null;
+    let currentLat = null;
+    let currentLon = null;
+    let hasFirstFix = false;
     
     // Configuração dos Mapas
     let currentLayer = null;
@@ -348,7 +353,6 @@
         map = L.map('map', {zoomControl: false}).setView([-14.235, -51.925], 4);
         L.control.zoom({position: 'topleft'}).addTo(map);
         
-        // CORREÇÃO 1: Inicia com Híbrido por padrão
         currentLayer = tileLayers.hybrid;
         currentLayer.addTo(map);
 
@@ -357,7 +361,128 @@
         markersLayer = L.layerGroup().addTo(map);
     }
 
-    // Função para mostrar/esconder o menu de mapas
+    // --- FUNÇÕES DE GEOLOCALIZAÇÃO ATUALIZADAS ---
+
+    // 1. Inicia o monitoramento contínuo (se ainda não estiver rodando)
+    function startGPSWatcher() {
+        if (watchId !== null) return; // Já está rodando, não faz nada
+
+        if ("geolocation" in navigator) {
+            document.getElementById('gpsMsg').innerText = "Iniciando GPS...";
+            document.getElementById('gpsMsg').style.display = 'block';
+            
+            // Inicia o watcher global
+            watchId = navigator.geolocation.watchPosition(
+                onLocationUpdate, 
+                errorGPS, 
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            );
+        } else {
+            alert("Seu navegador não suporta GPS.");
+        }
+    }
+
+    // 2. Callback que roda toda vez que a posição muda
+    function onLocationUpdate(position) {
+        document.getElementById('gpsMsg').style.display = 'none';
+
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        const ele = position.coords.altitude || 0;
+        const acc = position.coords.accuracy;
+
+        // Atualiza variáveis globais da última posição conhecida
+        currentLat = lat;
+        currentLon = lon;
+
+        // Atualiza visualmente o marcador no mapa (SEMPRE)
+        if(!map.hasLayer(userMarker)) userMarker.addTo(map);
+        userMarker.setLatLng([lat, lon]);
+
+        // Se é a PRIMEIRA vez que pega o sinal, centraliza o mapa
+        if (!hasFirstFix) {
+            map.flyTo([lat, lon], 17);
+            hasFirstFix = true;
+        }
+
+        // LÓGICA DE GRAVAÇÃO (Só roda se o botão GRAVAR estiver ativo)
+        if (isRecording) {
+            if (acc > 50) return; // Ignora imprecisões grandes
+
+            let distTotal = 0;
+            if (gpxData.length > 0) {
+                const last = gpxData[gpxData.length - 1];
+                const d = calcDistance(last.lat, last.lon, lat, lon);
+                if (d < 0.003) return; // Filtro de movimento mínimo (3 metros)
+                distTotal = last.dist + d;
+            }
+
+            const newPoint = { lat, lon, ele, dist: distTotal };
+            gpxData.push(newPoint);
+            activeLine.addLatLng([lat, lon]);
+            updateUI();
+        }
+    }
+
+    function errorGPS(err) {
+        document.getElementById('gpsMsg').innerText = "Sinal GPS fraco!";
+        document.getElementById('gpsMsg').style.display = 'block';
+    }
+
+    // 3. Função do Botão "Onde Estou?"
+    function locateMe() {
+        startGPSWatcher(); // Garante que o GPS está ligado
+
+        // Se já temos uma posição conhecida, voa para lá
+        if (currentLat !== null && currentLon !== null) {
+            const btn = document.querySelector('.fab-locate svg');
+            btn.style.fill = '#2962ff';
+            
+            // Centraliza o mapa manualmente a pedido do usuário
+            map.flyTo([currentLat, currentLon], 18, { animate: true, duration: 1.0 });
+            
+            setTimeout(() => { btn.style.fill = '#555'; }, 1500);
+        } else {
+            // Se ainda não pegou sinal, avisa o usuário
+            document.getElementById('gpsMsg').innerText = "Aguardando sinal GPS...";
+            document.getElementById('gpsMsg').style.display = 'block';
+        }
+    }
+
+    // 4. Função do Botão "Gravar"
+    async function toggleRecording() {
+        startGPSWatcher(); // Garante que o GPS está ligado para gravar
+
+        const btn = document.getElementById('btnRec');
+        const statusHeader = document.getElementById('statusHeader');
+        
+        if (!isRecording) {
+            // Iniciar Gravação
+            try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+            if (confirm("Iniciar nova gravação? (Isso limpará o mapa atual)")) clearData();
+
+            isRecording = true;
+            btn.innerHTML = "<span>⏹️</span> PARAR";
+            btn.classList.add('recording');
+            statusHeader.innerText = "Gravando...";
+            // O GPS já está rodando via watchId, a função onLocationUpdate vai começar a popular o gpxData
+            
+        } else {
+            // Parar Gravação
+            isRecording = false;
+            btn.innerHTML = "<span>🔴</span> Gravar ROTA";
+            btn.classList.remove('recording');
+            statusHeader.innerText = "Finalizado";
+            
+            if (wakeLock !== null) { wakeLock.release(); wakeLock = null; }
+            if(gpxData.length > 0) map.fitBounds(activeLine.getBounds(), {paddingBottomRight: [0, 200]});
+            
+            // NÃO paramos o GPS (watchId), pois o usuário quer continuar vendo sua posição
+        }
+    }
+
+    // --- FIM DAS FUNÇÕES DE GEOLOCALIZAÇÃO ---
+
     function toggleMapMenu() {
         const menu = document.getElementById('mapMenu');
         if (menu.classList.contains('hidden')) {
@@ -367,93 +492,11 @@
         }
     }
 
-    // Função para trocar o mapa
     function switchLayer(type) {
         if (currentLayer) map.removeLayer(currentLayer);
         currentLayer = tileLayers[type];
         currentLayer.addTo(map);
-        toggleMapMenu(); // Fecha o menu
-    }
-
-    function locateMe() {
-        if (!navigator.geolocation) { alert("Seu navegador não suporta GPS."); return; }
-        const btn = document.querySelector('.fab-locate svg');
-        btn.style.fill = '#2962ff';
-
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const lat = pos.coords.latitude; const lon = pos.coords.longitude;
-                if(!map.hasLayer(userMarker)) userMarker.addTo(map);
-                userMarker.setLatLng([lat, lon]);
-                map.flyTo([lat, lon], 17, { animate: true, duration: 1.5 });
-                btn.style.fill = '#555';
-            },
-            (err) => { alert("Erro ao obter localização."); btn.style.fill = '#555'; },
-            { enableHighAccuracy: true }
-        );
-    }
-
-    async function toggleRecording() {
-        const btn = document.getElementById('btnRec');
-        const statusHeader = document.getElementById('statusHeader');
-        
-        if (!isRecording) {
-            try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
-            if (confirm("Iniciar nova gravação? (Isso limpará o mapa atual)")) clearData();
-
-            isRecording = true;
-            btn.innerHTML = "<span>⏹️</span> PARAR";
-            btn.classList.add('recording');
-            statusHeader.innerText = "Gravando...";
-            document.getElementById('gpsMsg').style.display = 'block';
-
-            if ("geolocation" in navigator) {
-                watchId = navigator.geolocation.watchPosition(successGPS, errorGPS, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
-            }
-        } else {
-            isRecording = false;
-            btn.innerHTML = "<span>🔴</span> REC";
-            btn.classList.remove('recording');
-            statusHeader.innerText = "Finalizado";
-            document.getElementById('gpsMsg').style.display = 'none';
-
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-            if (wakeLock !== null) { wakeLock.release(); wakeLock = null; }
-            if(gpxData.length > 0) map.fitBounds(activeLine.getBounds(), {paddingBottomRight: [0, 200]});
-        }
-    }
-
-    function successGPS(position) {
-        document.getElementById('gpsMsg').style.display = 'none';
-        const lat = position.coords.latitude;
-        const lon = position.coords.longitude;
-        const ele = position.coords.altitude || 0;
-        const acc = position.coords.accuracy;
-
-        if(!map.hasLayer(userMarker)) userMarker.addTo(map);
-        userMarker.setLatLng([lat, lon]);
-        if (gpxData.length === 0) map.setView([lat, lon], 17);
-        else map.panTo([lat, lon]);
-
-        if (acc > 50) return; 
-
-        let distTotal = 0;
-        if (gpxData.length > 0) {
-            const last = gpxData[gpxData.length - 1];
-            const d = calcDistance(last.lat, last.lon, lat, lon);
-            if (d < 0.003) return; 
-            distTotal = last.dist + d;
-        }
-
-        const newPoint = { lat, lon, ele, dist: distTotal };
-        gpxData.push(newPoint);
-        activeLine.addLatLng([lat, lon]);
-        updateUI();
-    }
-
-    function errorGPS(err) {
-        document.getElementById('gpsMsg').innerText = "Sinal GPS fraco!";
-        document.getElementById('gpsMsg').style.display = 'block';
+        toggleMapMenu(); 
     }
 
     function clearData() {
@@ -466,7 +509,7 @@
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
-        if(isRecording) toggleRecording();
+        if(isRecording) toggleRecording(); // Para gravação se estiver rodando
         clearData();
         document.getElementById('statusHeader').innerText = file.name;
 
@@ -491,22 +534,19 @@
             }
             activeLine.setLatLngs(latlngs);
             
-            // CORREÇÃO 2: Configurar sliders para o FIM automaticamente
             if (gpxData.length > 0) {
                 const sStart = document.getElementById('sStart');
                 const sEnd = document.getElementById('sEnd');
                 const maxIdx = gpxData.length - 1;
                 
-                // Habilita e define os máximos
                 sStart.disabled = false; sEnd.disabled = false;
                 sStart.max = maxIdx; sEnd.max = maxIdx;
                 
-                // Define valores (Inicio = 0, Fim = Último ponto)
                 sStart.value = 0;
                 sEnd.value = maxIdx; 
 
                 map.fitBounds(activeLine.getBounds(), {padding: [20, 20]});
-                updateMapFromSliders(); // Atualiza a tela
+                updateMapFromSliders(); 
             }
         };
         reader.readAsText(file);
@@ -524,7 +564,6 @@
         const sStart = document.getElementById('sStart');
         const sEnd = document.getElementById('sEnd');
         
-        // Lógica para manter o slider no fim durante a GRAVAÇÃO (GPS)
         if(sEnd.value == sEnd.max) {
              sStart.max = gpxData.length - 1; sEnd.max = gpxData.length - 1; sEnd.value = gpxData.length - 1;
         } else { sStart.max = gpxData.length - 1; sEnd.max = gpxData.length - 1; }
