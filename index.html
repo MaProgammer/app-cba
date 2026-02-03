@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#1565C0">
+    
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1565C0">
+    
     <title>CBA Field Master</title>
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛰️</text></svg>">
@@ -23,6 +27,8 @@
             overflow: hidden; 
             background: #f0f2f5; 
             display: flex; flex-direction: column;
+            /* Evita o comportamento de "puxar" a página no iOS */
+            overscroll-behavior-y: none; 
         }
 
         /* --- HEADER --- */
@@ -34,7 +40,8 @@
             padding: 0 15px; 
             box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
             z-index: 2000;
-            padding-top: env(safe-area-inset-top); 
+            /* Respeita a área segura do iPhone (Notch) */
+            padding-top: max(env(safe-area-inset-top), 10px); 
         }
         .app-title { font-weight: 700; font-size: 0.95rem; display: flex; flex-direction: column; line-height: 1.1; }
         .app-subtitle { font-size: 0.6rem; opacity: 0.8; font-weight: 400; }
@@ -361,10 +368,6 @@
     let currentLon = null;
     let hasFirstFix = false;
 
-    // --- Audio Hack ---
-    const silentAudio = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFQAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhUAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhUAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEAAAAATGF2YzU3LjY0AAAAAAAAAAAAAAAAJAAAAAAAAAAAASCCAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIAAAAAAAAAAAAAAA//uQZAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD");
-    silentAudio.loop = true;
-    
     // Configuração dos Mapas
     let currentLayer = null;
     const tileLayers = {
@@ -395,7 +398,6 @@
             document.getElementById('gpsMsg').innerText = "Iniciando GPS...";
             document.getElementById('gpsMsg').style.display = 'block';
             
-            // Intervalo mais agressivo para garantir leitura
             watchId = navigator.geolocation.watchPosition(
                 onLocationUpdate, 
                 errorGPS, 
@@ -426,7 +428,6 @@
         }
 
         if (isRecording) {
-            // Aceita precisão um pouco pior para não perder pontos em movimento
             if (acc > 100) return;
 
             let distTotal = 0;
@@ -470,11 +471,11 @@
         const overlay = document.getElementById('pocketOverlay');
         if (active) {
             overlay.style.display = 'flex';
-            requestWakeLock(); // Garante que a tela não apaga
+            requestWakeLock(); 
         } else {
             clickCount++;
             if (clickCount === 1) {
-                setTimeout(() => clickCount = 0, 500); // Reset se não clicar rápido
+                setTimeout(() => clickCount = 0, 500); 
             } else {
                 overlay.style.display = 'none';
                 clickCount = 0;
@@ -488,7 +489,6 @@
                 wakeLock = await navigator.wakeLock.request('screen');
                 wakeLock.addEventListener('release', () => {
                     console.log('Wake Lock liberado.');
-                    // Se estivermos gravando, tentar pegar de novo
                     if(isRecording) requestWakeLock();
                 });
             } catch (err) {
@@ -497,11 +497,9 @@
         }
     }
 
-    // Reativa o Lock se a aba voltar a ser visível
     document.addEventListener('visibilitychange', async () => {
         if (document.visibilityState === 'visible' && isRecording) {
             await requestWakeLock();
-            // Reinicia o GPS se ele tiver morrido
             if(watchId) {
                 navigator.geolocation.clearWatch(watchId);
                 watchId = null;
@@ -517,10 +515,9 @@
         const statusHeader = document.getElementById('statusHeader');
         
         if (!isRecording) {
-            // --- INICIAR GRAVAÇÃO ---
             if (confirm("Iniciar nova gravação?")) clearData();
 
-            silentAudio.play().catch(e => console.log("Erro áudio:", e));
+            // Ativa o Wake Lock para segurar a tela
             await requestWakeLock();
 
             isRecording = true;
@@ -528,7 +525,6 @@
             btn.classList.add('recording');
             statusHeader.innerText = "Gravando... (Use o Modo Bolso)";
             
-            // Sugere o modo bolso
             setTimeout(() => {
                 if(confirm("Deseja ativar o MODO BOLSO para economizar bateria e evitar toques? (Recomendado)")) {
                     togglePocketMode(true);
@@ -536,9 +532,7 @@
             }, 500);
             
         } else {
-            // --- PARAR GRAVAÇÃO ---
             isRecording = false;
-            silentAudio.pause();
             
             if (wakeLock !== null) { 
                 await wakeLock.release().catch(e => {}); 
