@@ -54,6 +54,17 @@
 
         #fileInput { display: none; }
 
+        /* --- MODO BOLSO (OVERLAY) --- */
+        #pocketOverlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: black; z-index: 9999;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            color: #444; text-align: center;
+        }
+        .pocket-text { margin-bottom: 20px; font-size: 1.2rem; animation: floatText 3s infinite ease-in-out; }
+        @keyframes floatText { 0%, 100% { transform: translateY(0); opacity: 0.3; } 50% { transform: translateY(-10px); opacity: 0.8; } }
+        .pocket-btn { border: 2px solid #333; color: #333; background: transparent; padding: 10px 30px; border-radius: 30px; font-size: 1rem; }
+
         /* --- MAPA --- */
         #main-container { 
             position: relative; flex: 1; width: 100%; overflow: hidden;
@@ -244,17 +255,29 @@
 </head>
 <body>
 
+<div id="pocketOverlay" onclick="togglePocketMode(false)">
+    <div class="pocket-text">
+        🔒 MODO BOLSO ATIVO<br>
+        <span style="font-size:0.8rem">GPS Gravando...</span>
+    </div>
+    <div class="pocket-btn">Toque 2x para desbloquear</div>
+</div>
+
 <header>
     <div class="app-title">
         <span>🛰️ CBA Master</span>
         <span class="app-subtitle" id="statusHeader">Pronto</span>
     </div>
     <div class="header-actions">
+        <button class="btn-header" onclick="togglePocketMode(true)" style="background: rgba(0,0,0,0.2);">
+            <span>🔋</span> Bolso
+        </button>
+
         <button id="btnRec" class="btn-header" onclick="toggleRecording()">
-            <span>🔴</span> Gravar ROTA
+            <span>🔴</span> Gravar
         </button>
         <button class="btn-header" onclick="document.getElementById('fileInput').click()">
-            <span>📂</span> Abrir
+            <span>📂</span>
         </button>
     </div>
     <input type="file" id="fileInput" accept=".gpx">
@@ -338,9 +361,8 @@
     let currentLon = null;
     let hasFirstFix = false;
 
-    // --- NOVO: Audio Hack para Background ---
-    // Cria um elemento de áudio com um mp3 silencioso em base64
-    const silentAudio = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFQAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhUAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhUAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEAAAAATGF2YzU3LjY0AAAAAAAAAAAAAAAAJAAAAAAAAAAAASCCAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIAAAAAAAAAAAAAAA//uQZAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD");
+    // --- Audio Hack ---
+    const silentAudio = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFQAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhUAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhUAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEAAAAATGF2YzU3LjY0AAAAAAAAAAAAAAAAJAAAAAAAAAAAASCCAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIAAAAAAAAAAAAAAA//uQZAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD");
     silentAudio.loop = true;
     
     // Configuração dos Mapas
@@ -373,10 +395,11 @@
             document.getElementById('gpsMsg').innerText = "Iniciando GPS...";
             document.getElementById('gpsMsg').style.display = 'block';
             
+            // Intervalo mais agressivo para garantir leitura
             watchId = navigator.geolocation.watchPosition(
                 onLocationUpdate, 
                 errorGPS, 
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
             );
         } else {
             alert("Seu navegador não suporta GPS.");
@@ -403,14 +426,13 @@
         }
 
         if (isRecording) {
-            // Filtro de Precisão (se for muito ruim, ignora)
-            if (acc > 50) return;
+            // Aceita precisão um pouco pior para não perder pontos em movimento
+            if (acc > 100) return;
 
             let distTotal = 0;
             if (gpxData.length > 0) {
                 const last = gpxData[gpxData.length - 1];
                 const d = calcDistance(last.lat, last.lon, lat, lon);
-                // Filtro de movimento mínimo (2 metros) para evitar "ruído" quando parado
                 if (d < 0.002) return; 
                 distTotal = last.dist + d;
             }
@@ -423,9 +445,8 @@
     }
 
     function errorGPS(err) {
-        // Se estiver em background, as vezes dá erro de timeout, apenas ignora e tenta de novo
         console.warn("GPS Warning:", err.message);
-        document.getElementById('gpsMsg').innerText = "Sinal fraco (Tentando...)";
+        document.getElementById('gpsMsg').innerText = "Sinal fraco...";
         document.getElementById('gpsMsg').style.display = 'block';
     }
 
@@ -442,16 +463,33 @@
         }
     }
 
-    // --- FUNÇÕES DE CONTROLE DE ESTADO (TELA E ÁUDIO) ---
+    // --- FUNÇÕES DE WAKE LOCK & MODO BOLSO ---
 
-    // Função auxiliar para ativar o Wake Lock
+    let clickCount = 0;
+    function togglePocketMode(active) {
+        const overlay = document.getElementById('pocketOverlay');
+        if (active) {
+            overlay.style.display = 'flex';
+            requestWakeLock(); // Garante que a tela não apaga
+        } else {
+            clickCount++;
+            if (clickCount === 1) {
+                setTimeout(() => clickCount = 0, 500); // Reset se não clicar rápido
+            } else {
+                overlay.style.display = 'none';
+                clickCount = 0;
+            }
+        }
+    }
+
     async function requestWakeLock() {
         if ('wakeLock' in navigator) {
             try {
                 wakeLock = await navigator.wakeLock.request('screen');
-                // Escuta se o bloqueio for liberado (ex: pelo sistema) para tentar pegar de novo
                 wakeLock.addEventListener('release', () => {
                     console.log('Wake Lock liberado.');
+                    // Se estivermos gravando, tentar pegar de novo
+                    if(isRecording) requestWakeLock();
                 });
             } catch (err) {
                 console.error('Falha no Wake Lock:', err);
@@ -459,10 +497,16 @@
         }
     }
 
-    // Se o usuário minimizar e voltar, tentamos recuperar o Wake Lock
+    // Reativa o Lock se a aba voltar a ser visível
     document.addEventListener('visibilitychange', async () => {
-        if (wakeLock !== null && document.visibilityState === 'visible') {
+        if (document.visibilityState === 'visible' && isRecording) {
             await requestWakeLock();
+            // Reinicia o GPS se ele tiver morrido
+            if(watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                startGPSWatcher();
+            }
         }
     });
 
@@ -474,36 +518,34 @@
         
         if (!isRecording) {
             // --- INICIAR GRAVAÇÃO ---
-            if (confirm("Iniciar nova gravação? (Isso limpará o mapa atual)")) clearData();
+            if (confirm("Iniciar nova gravação?")) clearData();
 
-            // 1. Toca o áudio silencioso (Hack para Background)
-            silentAudio.play().then(() => {
-                console.log("Modo Background Ativo (Áudio)");
-            }).catch(e => console.log("Erro áudio:", e));
-
-            // 2. Trava a tela ligada
+            silentAudio.play().catch(e => console.log("Erro áudio:", e));
             await requestWakeLock();
 
             isRecording = true;
             btn.innerHTML = "<span>⏹️</span> PARAR";
             btn.classList.add('recording');
-            statusHeader.innerText = "Gravando... (Não feche o app)";
+            statusHeader.innerText = "Gravando... (Use o Modo Bolso)";
+            
+            // Sugere o modo bolso
+            setTimeout(() => {
+                if(confirm("Deseja ativar o MODO BOLSO para economizar bateria e evitar toques? (Recomendado)")) {
+                    togglePocketMode(true);
+                }
+            }, 500);
             
         } else {
             // --- PARAR GRAVAÇÃO ---
             isRecording = false;
-            
-            // 1. Para o áudio
             silentAudio.pause();
-            silentAudio.currentTime = 0;
-
-            // 2. Solta a tela
+            
             if (wakeLock !== null) { 
-                await wakeLock.release(); 
+                await wakeLock.release().catch(e => {}); 
                 wakeLock = null; 
             }
 
-            btn.innerHTML = "<span>🔴</span> Gravar ROTA";
+            btn.innerHTML = "<span>🔴</span> Gravar";
             btn.classList.remove('recording');
             statusHeader.innerText = "Finalizado";
             
@@ -737,11 +779,9 @@
         const coords = slice.map(p => `${p.lon},${p.lat},${p.ele}`).join(' ');
         const distTotal = slice.length > 0 ? (slice[slice.length-1].dist - slice[0].dist).toFixed(2) : "0.00";
         
-        // --- NOVO: Pedir nome do arquivo ---
         let fileName = prompt("Nome do arquivo (sem .kml):", `Rota_CBA_${distTotal}km`);
         if (!fileName) fileName = `Rota_CBA_${distTotal}km`;
         if (!fileName.toLowerCase().endsWith('.kml')) fileName += '.kml';
-        // -----------------------------------
 
         let pointsXML = '';
         customPoints.forEach(p => {
