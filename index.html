@@ -11,7 +11,6 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
         /* --- ESTILO GERAL --- */
@@ -320,7 +319,6 @@
 </div>
 
 <div class="hidden">
-    <canvas id="chartCanvas" width="320" height="150"></canvas>
     <input type="file" id="imgUpload" accept="image/*">
 </div>
 
@@ -339,6 +337,11 @@
     let currentLat = null;
     let currentLon = null;
     let hasFirstFix = false;
+
+    // --- NOVO: Audio Hack para Background ---
+    // Cria um elemento de áudio com um mp3 silencioso em base64
+    const silentAudio = new Audio("data:audio/mp3;base64,SUQzBAAAAAABAFRYWFQAAAASAAADbWFqb3JfYnJhbmQAbXA0MgBUWFhUAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhUAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzb21tcDQyAFRTU0UAAAAPAAADTGF2ZjU3LjU2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEAAAAATGF2YzU3LjY0AAAAAAAAAAAAAAAAJAAAAAAAAAAAASCCAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIAAAAAAAAAAAAAAA//uQZAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD/7kGQAAZAAABIAAA0gAAABIAAA0gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMYXZjNTcuNjQAAAAAAAAAAAAAAAAkAAAAAAAAAAAAEgAAAAAAAAD");
+    silentAudio.loop = true;
     
     // Configuração dos Mapas
     let currentLayer = null;
@@ -361,28 +364,25 @@
         markersLayer = L.layerGroup().addTo(map);
     }
 
-    // --- FUNÇÕES DE GEOLOCALIZAÇÃO ATUALIZADAS ---
+    // --- FUNÇÕES DE GEOLOCALIZAÇÃO ---
 
-    // 1. Inicia o monitoramento contínuo (se ainda não estiver rodando)
     function startGPSWatcher() {
-        if (watchId !== null) return; // Já está rodando, não faz nada
+        if (watchId !== null) return; 
 
         if ("geolocation" in navigator) {
             document.getElementById('gpsMsg').innerText = "Iniciando GPS...";
             document.getElementById('gpsMsg').style.display = 'block';
             
-            // Inicia o watcher global
             watchId = navigator.geolocation.watchPosition(
                 onLocationUpdate, 
                 errorGPS, 
-                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             );
         } else {
             alert("Seu navegador não suporta GPS.");
         }
     }
 
-    // 2. Callback que roda toda vez que a posição muda
     function onLocationUpdate(position) {
         document.getElementById('gpsMsg').style.display = 'none';
 
@@ -391,29 +391,27 @@
         const ele = position.coords.altitude || 0;
         const acc = position.coords.accuracy;
 
-        // Atualiza variáveis globais da última posição conhecida
         currentLat = lat;
         currentLon = lon;
 
-        // Atualiza visualmente o marcador no mapa (SEMPRE)
         if(!map.hasLayer(userMarker)) userMarker.addTo(map);
         userMarker.setLatLng([lat, lon]);
 
-        // Se é a PRIMEIRA vez que pega o sinal, centraliza o mapa
         if (!hasFirstFix) {
             map.flyTo([lat, lon], 17);
             hasFirstFix = true;
         }
 
-        // LÓGICA DE GRAVAÇÃO (Só roda se o botão GRAVAR estiver ativo)
         if (isRecording) {
-            if (acc > 50) return; // Ignora imprecisões grandes
+            // Filtro de Precisão (se for muito ruim, ignora)
+            if (acc > 50) return;
 
             let distTotal = 0;
             if (gpxData.length > 0) {
                 const last = gpxData[gpxData.length - 1];
                 const d = calcDistance(last.lat, last.lon, lat, lon);
-                if (d < 0.003) return; // Filtro de movimento mínimo (3 metros)
+                // Filtro de movimento mínimo (2 metros) para evitar "ruído" quando parado
+                if (d < 0.002) return; 
                 distTotal = last.dist + d;
             }
 
@@ -425,63 +423,93 @@
     }
 
     function errorGPS(err) {
-        document.getElementById('gpsMsg').innerText = "Sinal GPS fraco!";
+        // Se estiver em background, as vezes dá erro de timeout, apenas ignora e tenta de novo
+        console.warn("GPS Warning:", err.message);
+        document.getElementById('gpsMsg').innerText = "Sinal fraco (Tentando...)";
         document.getElementById('gpsMsg').style.display = 'block';
     }
 
-    // 3. Função do Botão "Onde Estou?"
     function locateMe() {
-        startGPSWatcher(); // Garante que o GPS está ligado
-
-        // Se já temos uma posição conhecida, voa para lá
+        startGPSWatcher(); 
         if (currentLat !== null && currentLon !== null) {
             const btn = document.querySelector('.fab-locate svg');
             btn.style.fill = '#2962ff';
-            
-            // Centraliza o mapa manualmente a pedido do usuário
             map.flyTo([currentLat, currentLon], 18, { animate: true, duration: 1.0 });
-            
             setTimeout(() => { btn.style.fill = '#555'; }, 1500);
         } else {
-            // Se ainda não pegou sinal, avisa o usuário
             document.getElementById('gpsMsg').innerText = "Aguardando sinal GPS...";
             document.getElementById('gpsMsg').style.display = 'block';
         }
     }
 
-    // 4. Função do Botão "Gravar"
+    // --- FUNÇÕES DE CONTROLE DE ESTADO (TELA E ÁUDIO) ---
+
+    // Função auxiliar para ativar o Wake Lock
+    async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                // Escuta se o bloqueio for liberado (ex: pelo sistema) para tentar pegar de novo
+                wakeLock.addEventListener('release', () => {
+                    console.log('Wake Lock liberado.');
+                });
+            } catch (err) {
+                console.error('Falha no Wake Lock:', err);
+            }
+        }
+    }
+
+    // Se o usuário minimizar e voltar, tentamos recuperar o Wake Lock
+    document.addEventListener('visibilitychange', async () => {
+        if (wakeLock !== null && document.visibilityState === 'visible') {
+            await requestWakeLock();
+        }
+    });
+
     async function toggleRecording() {
-        startGPSWatcher(); // Garante que o GPS está ligado para gravar
+        startGPSWatcher();
 
         const btn = document.getElementById('btnRec');
         const statusHeader = document.getElementById('statusHeader');
         
         if (!isRecording) {
-            // Iniciar Gravação
-            try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+            // --- INICIAR GRAVAÇÃO ---
             if (confirm("Iniciar nova gravação? (Isso limpará o mapa atual)")) clearData();
+
+            // 1. Toca o áudio silencioso (Hack para Background)
+            silentAudio.play().then(() => {
+                console.log("Modo Background Ativo (Áudio)");
+            }).catch(e => console.log("Erro áudio:", e));
+
+            // 2. Trava a tela ligada
+            await requestWakeLock();
 
             isRecording = true;
             btn.innerHTML = "<span>⏹️</span> PARAR";
             btn.classList.add('recording');
-            statusHeader.innerText = "Gravando...";
-            // O GPS já está rodando via watchId, a função onLocationUpdate vai começar a popular o gpxData
+            statusHeader.innerText = "Gravando... (Não feche o app)";
             
         } else {
-            // Parar Gravação
+            // --- PARAR GRAVAÇÃO ---
             isRecording = false;
+            
+            // 1. Para o áudio
+            silentAudio.pause();
+            silentAudio.currentTime = 0;
+
+            // 2. Solta a tela
+            if (wakeLock !== null) { 
+                await wakeLock.release(); 
+                wakeLock = null; 
+            }
+
             btn.innerHTML = "<span>🔴</span> Gravar ROTA";
             btn.classList.remove('recording');
             statusHeader.innerText = "Finalizado";
             
-            if (wakeLock !== null) { wakeLock.release(); wakeLock = null; }
             if(gpxData.length > 0) map.fitBounds(activeLine.getBounds(), {paddingBottomRight: [0, 200]});
-            
-            // NÃO paramos o GPS (watchId), pois o usuário quer continuar vendo sua posição
         }
     }
-
-    // --- FIM DAS FUNÇÕES DE GEOLOCALIZAÇÃO ---
 
     function toggleMapMenu() {
         const menu = document.getElementById('mapMenu');
@@ -509,7 +537,7 @@
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
-        if(isRecording) toggleRecording(); // Para gravação se estiver rodando
+        if(isRecording) toggleRecording(); 
         clearData();
         document.getElementById('statusHeader').innerText = file.name;
 
@@ -706,23 +734,15 @@
         const j = parseInt(document.getElementById('sEnd').value);
         const slice = gpxData.slice(i, j + 1);
 
-        let imgChart = '';
-        if(slice.length > 1) {
-            const ctx = document.getElementById('chartCanvas').getContext('2d');
-            ctx.clearRect(0,0,320,150);
-            if(window.myChart) window.myChart.destroy();
-            window.myChart = new Chart(ctx, {
-                type: 'line',
-                data: { labels: slice.map(p => p.dist.toFixed(1)), datasets: [{ data: slice.map(p => p.ele), borderColor: '#1565C0', backgroundColor: 'rgba(33,150,243,0.2)', borderWidth: 2, fill: true, pointRadius: 0 }] },
-                options: { animation: false, responsive: false, scales: {x:{display:false}, y:{ticks:{font:{size:10}}}}, plugins: {legend:{display:false}} }
-            });
-            await new Promise(r => setTimeout(r, 200));
-            imgChart = document.getElementById('chartCanvas').toDataURL('image/png');
-        }
-
         const coords = slice.map(p => `${p.lon},${p.lat},${p.ele}`).join(' ');
         const distTotal = slice.length > 0 ? (slice[slice.length-1].dist - slice[0].dist).toFixed(2) : "0.00";
         
+        // --- NOVO: Pedir nome do arquivo ---
+        let fileName = prompt("Nome do arquivo (sem .kml):", `Rota_CBA_${distTotal}km`);
+        if (!fileName) fileName = `Rota_CBA_${distTotal}km`;
+        if (!fileName.toLowerCase().endsWith('.kml')) fileName += '.kml';
+        // -----------------------------------
+
         let pointsXML = '';
         customPoints.forEach(p => {
             const style = p.type === 'alert' ? 'iconAlert' : 'iconInfo';
@@ -734,16 +754,16 @@
         <Placemark>
             <name>Traçado - ${distTotal}km</name>
             <styleUrl>#lineCyan</styleUrl>
-            <description><![CDATA[<div style="font-family:Arial; width:300px;"><h3 style="color:#1565C0;">Resumo</h3><p>Distância: <b>${distTotal} km</b></p><img src="${imgChart}" style="width:100%;"></div>]]></description>
+            <description><![CDATA[<div style="font-family:Arial; width:300px;"><h3 style="color:#1565C0;">Resumo</h3><p>Distância: <b>${distTotal} km</b></p></div>]]></description>
             <LineString><tessellate>1</tessellate><coordinates>${coords}</coordinates></LineString>
         </Placemark>` : '';
 
-        const kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Rota CBA</name><Style id="lineCyan"><LineStyle><color>ffFFFF00</color><width>5</width></LineStyle></Style><Style id="iconAlert"><IconStyle><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/caution.png</href></Icon></IconStyle></Style><Style id="iconInfo"><IconStyle><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/info.png</href></Icon></IconStyle></Style>${rotaXML}<Folder><name>Ocorrências</name>${pointsXML}</Folder></Document></kml>`;
+        const kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${fileName}</name><Style id="lineCyan"><LineStyle><color>ffFFFF00</color><width>5</width></LineStyle></Style><Style id="iconAlert"><IconStyle><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/caution.png</href></Icon></IconStyle></Style><Style id="iconInfo"><IconStyle><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/info.png</href></Icon></IconStyle></Style>${rotaXML}<Folder><name>Ocorrências</name>${pointsXML}</Folder></Document></kml>`;
         
         const blob = new Blob([kml], {type: 'application/vnd.google-earth.kml+xml'});
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `Rota_CBA_${distTotal}km.kml`;
+        link.download = fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
