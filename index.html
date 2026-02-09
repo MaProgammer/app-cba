@@ -389,10 +389,12 @@
     // Variáveis de Desenho
     let customShapes = []; 
     let drawingMode = null; // 'line' ou 'polygon'
-    let tempShapeData = []; // [{lat, lon, img, marker}, ...]
+    let tempShapeData = []; // [{lat, lon, img, marker, photoLabel}, ...]
     let tempShapeLayer = null;
     let tempVerticesGroup = null; // Grupo de layers para os bolinhas brancas
-    let activeVertexIndex = -1; // Qual vértice foi clicado para por foto
+    
+    let activeVertexIndex = -1; // Qual vértice foi clicado
+    let activeVertexLabel = ""; // Armazena o nome digitado temporariamente
 
     let currentMode = null; 
     let tempPoint = null; 
@@ -659,17 +661,13 @@
             id: Date.now(),
             type: drawingMode,
             label: label,
-            points: [...tempShapeData], // array de objetos {lat, lon, img}
-            image: null // Imagem geral da forma (opcional, mantido da versão anterior)
+            points: [...tempShapeData], // array de objetos {lat, lon, img, photoLabel}
+            image: null 
         };
 
-        if (confirm("Deseja adicionar uma foto GERAL para esta " + (drawingMode==='line'?'linha':'área') + "?\n(Fotos de vértices já foram salvas)")) {
-            tempPoint = shapeObj; 
-            document.getElementById('imgUpload').click();
-        } else {
-            addShapeToMap(shapeObj);
-        }
-
+        // Adiciona direto ao mapa sem pedir foto geral
+        addShapeToMap(shapeObj);
+        
         cancelDraw(); 
     }
 
@@ -692,7 +690,8 @@
         shapeObj.points.forEach((pt, idx) => {
             if(pt.img) {
                 photoCount++;
-                vertexPhotosHtml += `<div style="margin-top:4px; border-top:1px solid #eee; font-size:0.7em;"><b>Pt ${idx+1}:</b><br><img src="${pt.img}" style="width:50px; height:50px; object-fit:cover; border:1px solid #ccc;"></div>`;
+                const pLabel = pt.photoLabel || `Pt ${idx+1}`;
+                vertexPhotosHtml += `<div style="margin-top:4px; border-top:1px solid #eee; font-size:0.7em;"><b>${pLabel}:</b><br><img src="${pt.img}" style="width:50px; height:50px; object-fit:cover; border:1px solid #ccc;"></div>`;
             }
         });
 
@@ -735,16 +734,19 @@
                 resizeImage(evt.target.result, function(res) { 
                     // Salva a imagem no array tempShapeData
                     tempShapeData[activeVertexIndex].img = res;
+                    // Salva o nome digitado
+                    tempShapeData[activeVertexIndex].photoLabel = activeVertexLabel;
                     
                     // Muda a cor do vértice para indicar que tem foto
                     const vMarker = tempShapeData[activeVertexIndex].marker;
                     if(vMarker) {
                         vMarker.setStyle({ fillColor: '#00e676', color: '#000' });
-                        vMarker.bindTooltip("Foto Adicionada!", {permanent: false, direction: 'top'}).openTooltip();
+                        vMarker.bindTooltip(activeVertexLabel, {permanent: false, direction: 'top'}).openTooltip();
                         setTimeout(() => vMarker.closeTooltip(), 2000);
                     }
                     
-                    activeVertexIndex = -1; // Reset
+                    activeVertexIndex = -1; 
+                    activeVertexLabel = "";
                 });
             };
             reader.readAsDataURL(this.files[0]);
@@ -909,18 +911,26 @@
             
             // Cria marcador visual do vértice (bolinha branca)
             const vMarker = L.circleMarker([lat, lon], {
-                radius: 6, color: '#333', weight: 1, fillColor: '#fff', fillOpacity: 1
+                radius: 12, // TAMANHO GRANDE
+                color: '#333',
+                weight: 2,
+                fillColor: '#fff',
+                fillOpacity: 1
             }).addTo(tempVerticesGroup);
 
             // Guarda os dados deste ponto
             const newIdx = tempShapeData.length;
-            const ptData = { lat: lat, lon: lon, img: null, marker: vMarker };
+            const ptData = { lat: lat, lon: lon, img: null, marker: vMarker, photoLabel: null };
             tempShapeData.push(ptData);
 
             // Adiciona evento de clique no vértice para adicionar foto
             vMarker.on('click', function(ev) {
                 L.DomEvent.stopPropagation(ev); // Não propagar para o mapa
-                if(confirm("Adicionar foto a este ponto específico do desenho?")) {
+                if(confirm("Adicionar foto a este ponto?")) {
+                    const label = prompt("Nome do Ponto (ex: Buraco, Toco):", "Foto");
+                    if (label === null) return; // Cancelou
+                    
+                    activeVertexLabel = label || "Foto";
                     activeVertexIndex = newIdx;
                     document.getElementById('vertexImgUpload').click();
                 }
@@ -1030,7 +1040,8 @@
             // Exportar fotos dos vértices como pontos individuais
             s.points.forEach((pt, idx) => {
                 if(pt.img) {
-                    vertexPhotosXML += `<Placemark><name>Foto ${s.label} (${idx+1})</name><styleUrl>#iconCam</styleUrl><description><![CDATA[<img src="${pt.img}" style="width:300px;">]]></description><Point><coordinates>${pt.lon},${pt.lat},0</coordinates></Point></Placemark>`;
+                    const pLabel = pt.photoLabel || `Foto ${s.label} (${idx+1})`;
+                    vertexPhotosXML += `<Placemark><name>${pLabel}</name><styleUrl>#iconCam</styleUrl><description><![CDATA[<img src="${pt.img}" style="width:300px;">]]></description><Point><coordinates>${pt.lon},${pt.lat},0</coordinates></Point></Placemark>`;
                 }
             });
         });
